@@ -1,0 +1,43 @@
+# Ignore all migrations in the is app when pushing to git
+*.pyc
+*.pyo
+*.db
+migrations/
+__pycache__/
+
+
+# Ignore the virtualenv
+venv/
+
+# Ignore the local settings file
+local_settings.py
+
+# Ignore the static files
+staticfiles/
+
+# Ignore the media files
+media/
+
+# Ignore the logs
+logs/
+
+# Ignore the database
+db.sqlite3
+
+# Ignore the secret key
+secret_key.py
+
+# Ignore the .env file
+.env
+
+# Ignore the .DS_Store file
+.DS_Store
+
+# Ignore the .vscode folder
+.vscode/
+
+# Ignore the .idea folder
+.idea/
+
+# Ignore the .git folder
+.git/
