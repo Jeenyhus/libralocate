@@ -4,94 +4,169 @@ new Vue({
     el: '#app',
     
     // Define the data properties for the Vue instance
-    data: {
-        // This will hold the user's search query
+    data:  {
         query: '',
-        // This will store the books retrieved from the API       
-        books: [], 
-        // This will hold any error messages that occur during the fetch      
-        error: ''        
+        books: [],
+        error: '',
+        selectedCategory: '',
+        categories: ['Fiction', 'Non-Fiction', 'Science', 'Technology', 'Biography', 'Fantasy'],
+        sortBy: '', // Store the selected sorting criteria
+        sortOptions: [ // Define the available sorting options
+            { value: 'title', text: 'Title' },
+            { value: 'author', text: 'Author' },
+            { value: 'publishedDate', text: 'Publication Date' }, 
+            { value: 'rating', text: 'Rating' }
+        ],
+        searching: false
     },
-    
-    // Define the methods for the Vue instance
     methods: {
-        // Method to search books based on the user's query
         searchBooks() {
-            // Use the fetch API to get book data from the backend
+            this.searching = true;
             fetch(`/api/search-books/?query=${this.query}`)
-                .then(response => response.json())  // Parse the JSON response
+                .then(response => response.json())
                 .then(data => {
-                    // Check if the backend returned an error
                     if (data.error) {
-                        // Set the error message
-                        this.error = data.error;  
-                        // Clear the books array
-                        this.books = [];          
+                        this.error = data.error;
+                        this.books = [];
                     } else {
-                        // Set the books array to the items returned from the API
                         this.books = data.items || [];
-                        // Clear any existing error messages
-                        this.error = '';  
+                        this.error = '';
                     }
                 })
                 .catch(error => {
-                    // Handle any errors that occur during the fetch
                     this.error = 'Error fetching book details';
                     console.error('Error:', error);
+                })
+                .finally(() => {
+                    this.searching = false;
                 });
+        },
+        getThumbnailUrl(book) {
+            return book.volumeInfo.imageLinks ? book.volumeInfo.imageLinks.thumbnail.replace('http://', 'https://').replace('&edge=curl', '') : 'https://via.placeholder.com/128x192?text=No+Image';
+        },
+        fetchInitialBooks() {
+            fetch('/api/initial-books')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        this.error = data.error;
+                        this.books = [];
+                    } else {
+                        this.books = data.items || [];
+                        this.error = '';
+                    }
+                })
+                .catch(error => {
+                    this.error = 'Error fetching initial books';
+                    console.error('Error:', error);
+                });
+        },
+        filterByCategory() {
+            if (this.selectedCategory) {
+                fetch(`/api/filter-books/?category=${this.selectedCategory}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.error) {
+                            this.error = data.error;
+                            this.books = [];
+                        } else {
+                            this.books = data.items || [];
+                            this.error = '';
+                        }
+                    })
+                    .catch(error => {
+                        this.error = 'Error fetching filtered books';
+                        console.error('Error:', error);
+                    });
+            } else {
+                this.fetchInitialBooks();
+            }
+        },
+        sortBooks() {
+            if (this.sortBy === 'title') {
+                this.books.sort((a, b) => a.volumeInfo.title.localeCompare(b.volumeInfo.title));
+            } else if (this.sortBy === 'author') {
+                this.books.sort((a, b) => a.volumeInfo.authors[0].localeCompare(b.volumeInfo.authors[0]));
+            } else if (this.sortBy === 'publishedDate') {
+                this.books.sort((a, b) => new Date(a.volumeInfo.publishedDate) - new Date(b.volumeInfo.publishedDate));
+            } else if (this.sortBy === 'rating') {
+                this.books.sort((a, b) => (a.volumeInfo.averageRating || 0) - (b.volumeInfo.averageRating || 0));
+            }
         }
+    },
+    created() {
+        this.fetchInitialBooks();
     },
     
     // Define the template for rendering the HTML
     template: `
-        <div>
-            <!-- Input field for the search query, bound to the 'query' data property -->
-            <input v-model="query" placeholder="Search for books by title, genre, or author">
-            
-            <!-- Button to trigger the searchBooks method -->
-            <button @click="searchBooks">Search</button>
-            
-            <!-- Display an error message if there is an error -->
-            <div v-if="error" class="error">{{ error }}</div>
-            
-            <!-- Display the list of books if there are any -->
-            <ul v-if="books.length">
-                <!-- Loop through each book in the books array -->
-                <li v-for="book in books" :key="book.id">
-                    <!-- Display the book title or a fallback message -->
-                    <h3>{{ book.volumeInfo.title || 'Title not available' }}</h3>
+                <div id="app" class="container mt-5">
+                    <h2 class="text-center mb-4">LibraLocate</h2>
                     
-                    <!-- Display the book description or a fallback message -->
-                    <p>{{ book.volumeInfo.description || 'Description not available' }}</p>
+                    <!-- Search form with loading indicator -->
+                    <div class="row justify-content-center mb-4">
+                        <div class="col-md-6">
+                            <div class="input-group">
+                                <input v-model="query" @keyup.enter="searchBooks" class="form-control" placeholder="Search for books by title, genre, or author">
+                                <div class="input-group-append">
+                                    <button @click="searchBooks" class="btn btn-primary" :disabled="searching">
+                                        <span v-if="searching" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                                        <span v-else>Search</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                     
-                    <!-- Display the authors, joining them with commas, or a fallback message -->
-                    <p><strong>Authors:</strong> {{ book.volumeInfo.authors ? book.volumeInfo.authors.join(', ') : 'Authors not available' }}</p>
+                    <!-- Category filter -->
+                    <div class="row justify-content-center mb-4">
+                        <div class="col-md-4">
+                            <select v-model="selectedCategory" @change="filterByCategory" class="form-control">
+                                <option value="">All Categories</option>
+                                <option v-for="category in categories" :key="category" :value="category">{{ category }}</option>
+                            </select>
+                        </div>
+                    </div>
                     
-                    <!-- Display the publisher or a fallback message -->
-                    <p><strong>Publisher:</strong> {{ book.volumeInfo.publisher || 'Publisher not available' }}</p>
+                    <!-- Sorting options -->
+                    <div class="row justify-content-center mb-4">
+                        <div class="col-md-4">
+                            <select v-model="sortBy" @change="sortBooks" class="form-control">
+                                <option value="" disabled selected>Sort by</option>
+                                <option v-for="option in sortOptions" :key="option.value" :value="option.value">{{ option.text }}</option>
+                            </select>
+                        </div>
+                    </div>
                     
-                    <!-- Display the published date or a fallback message -->
-                    <p><strong>Published Date:</strong> {{ book.volumeInfo.publishedDate || 'Date not available' }}</p>
+                    <!-- Display an error message if there is an error -->
+                    <div v-if="error" class="alert alert-danger text-center">{{ error }}</div>
                     
-                    <!-- Display the book cover image if available, otherwise a fallback message -->
-                    <img :src="book.volumeInfo.imageLinks ? book.volumeInfo.imageLinks.thumbnail : 'No image available'" alt="Cover Image">
-                    
-                    <!-- Display the buy link if available, otherwise a fallback message -->
-                    <p><strong>Buy Link:</strong> 
-                        <a :href="book.saleInfo && book.saleInfo.buyLink ? book.saleInfo.buyLink : '#'" target="_blank" v-if="book.saleInfo && book.saleInfo.buyLink">Buy here</a>
-                        <span v-else>Not available</span>
-                    </p>
-                    
-                    <!-- Display the viewability status or a fallback message -->
-                    <p><strong>Viewability:</strong> {{ book.accessInfo.viewability || 'Viewability not available' }}</p>
-                    
-                    <!-- Display the web reader link if available, otherwise a fallback message -->
-                    <p><strong>Web Reader Link:</strong> 
-                        <a :href="book.accessInfo && book.accessInfo.webReaderLink ? book.accessInfo.webReaderLink : '#'" target="_blank" v-if="book.accessInfo && book.accessInfo.webReaderLink">Read here</a>
-                        <span v-else>Not available</span>
-                    </p>
-                </li>
-            </ul>
-        </div>
+                    <!-- Display the list of books if there are any -->
+                    <div v-if="books.length" class="row">
+                        <div v-for="book in books" :key="book.id" class="col-md-4 mb-4">
+                            <div class="card h-100">
+                                <img :src="getThumbnailUrl(book)" class="card-img-top" alt="Cover Image">
+                                <div class="card-body">
+                                    <h5 class="card-title">{{ book.volumeInfo.title || 'Title not available' }}</h5>
+                                    <p class="card-text">{{ book.volumeInfo.description || 'Description not available' }}</p>
+                                </div>
+                                <ul class="list-group list-group-flush">
+                                    <li class="list-group-item"><strong>Authors:</strong> {{ book.volumeInfo.authors ? book.volumeInfo.authors.join(', ') : 'Authors not available' }}</li>
+                                    <li class="list-group-item"><strong>Categories:</strong> {{ book.volumeInfo.categories ? book.volumeInfo.categories.join(', ') : 'Categories not available' }}</li>
+                                    <li class="list-group-item"><strong>Publisher:</strong> {{ book.volumeInfo.publisher || 'Publisher not available' }}</li>
+                                    <li class="list-group-item"><strong>Published Date:</strong> {{ book.volumeInfo.publishedDate || 'Date not available' }}</li>
+                                </ul>
+                                <div class="card-body">
+                                    <a :href="book.saleInfo && book.saleInfo.buyLink ? book.saleInfo.buyLink : '#'" target="_blank" class="btn btn-primary mr-2" v-if="book.saleInfo && book.saleInfo.buyLink">Buy</a>
+                                    <a :href="book.accessInfo && book.accessInfo.webReaderLink ? book.accessInfo.webReaderLink : '#'" target="_blank" class="btn btn-secondary" v-if="book.accessInfo && book.accessInfo.webReaderLink">Read</a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div v-else class="text-center">
+                        <p class="text-muted">No books found.</p>
+                    </div>
+                </div>
+
     `
 });

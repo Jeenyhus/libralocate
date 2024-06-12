@@ -28,3 +28,18 @@ def search_books_view(request):
         return JsonResponse(result)
     else:
         return JsonResponse({'error': 'Failed to fetch book details'}, status=500)
+
+def initial_books(request):
+    books = Book.objects.all().values('title', 'author', 'categories')
+    return JsonResponse({'books': list(books)})
+
+def filter_books_by_category(request):
+    category = request.GET.get('category')
+    if category:
+        # Filter books by category
+        books = Book.objects.filter(categories__icontains=category)
+        # Serialize books data as JSON
+        books_data = [{'title': book.title, 'author': book.author, 'description': book.description} for book in books]
+        return JsonResponse({'items': books_data})
+    else:
+        return JsonResponse({'error': 'Category parameter is missing'}, status=400)
