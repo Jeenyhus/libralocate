@@ -17,9 +17,11 @@ class Book(models.Model):
     author = models.CharField(max_length=255)
     isbn = models.CharField(max_length=13, unique=True)
     description = models.TextField(null=True, blank=True)
+    publisher = models.CharField(max_length=255)
     published_date = models.DateField(null=True, blank=True)
     cover_image = models.URLField(null=True, blank=True)
-
+    page_count = models.IntegerField()
+    categories = models.CharField(max_length=255)
     def __str__(self):
         return self.title
 
