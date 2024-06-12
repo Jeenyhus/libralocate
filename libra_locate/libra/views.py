@@ -1,5 +1,7 @@
 from django.shortcuts import render
 
-# Create your views here.
 def index(request):
-    return render(request, 'libra/index.html')
+    """
+    Renders the main Vue.js application.
+    """
+    return render(request, 'index.html')
